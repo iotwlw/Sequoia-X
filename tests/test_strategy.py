@@ -5,7 +5,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
-from hypothesis import given, settings as h_settings
+from hypothesis import given
+from hypothesis import settings as h_settings
 from hypothesis import strategies as st
 
 from sequoia_x.core.config import Settings
@@ -17,7 +18,9 @@ from sequoia_x.strategy.ma_volume import MaVolumeStrategy
 @given(
     symbols=st.lists(
         st.text(min_size=6, max_size=6, alphabet="0123456789"),
-        min_size=0, max_size=3, unique=True,
+        min_size=0,
+        max_size=3,
+        unique=True,
     )
 )
 @h_settings(max_examples=30, deadline=None)

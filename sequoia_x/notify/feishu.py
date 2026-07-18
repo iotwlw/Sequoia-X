@@ -7,6 +7,12 @@ import requests
 
 from sequoia_x.core.config import Settings
 from sequoia_x.core.logger import get_logger
+from sequoia_x.data.baostock_guard import (
+    BaostockError,
+    login_baostock,
+    logout_baostock,
+    query_stock_basic,
+)
 
 logger = get_logger(__name__)
 
@@ -37,19 +43,30 @@ class FeishuNotifier:
             return f"BJ{code}"
         return f"SZ{code}"
 
-    @staticmethod
-    def _get_stock_names(symbols: list[str]) -> dict[str, str]:
+    def _get_stock_names(self, symbols: list[str]) -> dict[str, str]:
         """通过 baostock 批量查询股票名称，返回 {code: name} 映射。"""
-        import baostock as bs
-        bs.login()
         mapping = {}
-        for code in symbols:
-            prefix = "sh" if code.startswith(("6", "9")) else "sz"
-            rs = bs.query_stock_basic(code=f"{prefix}.{code}")
-            while rs.next():
-                row = rs.get_row_data()
-                mapping[code] = row[1]  # 第2个字段是股票名称
-        bs.logout()
+
+        try:
+            login_baostock(logger)
+        except BaostockError:
+            return mapping
+
+        try:
+            for code in symbols:
+                prefix = "sh" if code.startswith(("6", "9")) else "sz"
+                rs = query_stock_basic(
+                    code=f"{prefix}.{code}",
+                    _state_dir=self.settings.state_dir,
+                )
+                while rs.next():
+                    row = rs.get_row_data()
+                    mapping[code] = row[1]  # 第2个字段是股票名称
+        except Exception as exc:
+            logger.warning(f"查询股票名称失败，通知将退化为股票代码：{exc}")
+        finally:
+            logout_baostock(logger)
+
         return mapping
 
     def _build_card(self, symbols: list[str], strategy_name: str) -> dict:
@@ -63,6 +80,13 @@ class FeishuNotifier:
             links.append(f"[{name}](https://xueqiu.com/S/{xq_code})")
 
         symbol_text = " ".join(links) if links else "（无选股结果）"
+        summary = "\n".join(
+            [
+                f"**日期：** {today}",
+                f"**策略：** {strategy_name}",
+                f"**选股数量：** {len(symbols)}",
+            ]
+        )
 
         return {
             "msg_type": "interactive",
@@ -79,7 +103,7 @@ class FeishuNotifier:
                         "tag": "div",
                         "text": {
                             "tag": "lark_md",
-                            "content": f"**日期：** {today}\n**策略：** {strategy_name}\n**选股数量：** {len(symbols)}",
+                            "content": summary,
                         },
                     },
                     {"tag": "hr"},
@@ -114,10 +138,9 @@ class FeishuNotifier:
         Raises:
             不抛出异常，HTTP 失败时记录 ERROR 日志。
         """
-        url = self.settings.get_webhook_url(webhook_key)
-        payload = self._build_card(symbols, strategy_name)
-
         try:
+            url = self.settings.get_webhook_url(webhook_key)
+            payload = self._build_card(symbols, strategy_name)
             resp = requests.post(
                 url,
                 data=json.dumps(payload),
@@ -126,15 +149,16 @@ class FeishuNotifier:
             )
             # 解析飞书真正的返回体
             resp_json = resp.json()
+            if not isinstance(resp_json, dict):
+                raise ValueError(f"飞书响应 JSON 不是对象：{type(resp_json).__name__}")
 
             # 飞书真正的成功标志是内部的 code == 0
             if resp.status_code != 200 or resp_json.get("code") != 0:
                 logger.error(
-                    f"飞书推送失败 [{webhook_key}] "
-                    f"HTTP状态={resp.status_code} 飞书响应={resp.text}"
+                    f"飞书推送失败 [{webhook_key}] HTTP状态={resp.status_code} 飞书响应={resp.text}"
                 )
             else:
                 logger.info(f"飞书推送成功 [{webhook_key}]，共 {len(symbols)} 只股票")
 
-        except requests.RequestException as exc:
-            logger.error(f"飞书推送请求异常 [{webhook_key}]：{exc}")
+        except Exception as exc:
+            logger.error(f"飞书推送异常 [{webhook_key}]：{exc}")

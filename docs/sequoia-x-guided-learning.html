@@ -1,0 +1,1554 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sequoia-X 引导式源码学习</title>
+  <style>
+    :root {
+      --bg: #f4f6f1;
+      --surface: #ffffff;
+      --surface-2: #eef2e8;
+      --ink: #18211d;
+      --muted: #5b665f;
+      --line: #d8dfd3;
+      --primary: #1f6f4a;
+      --primary-ink: #ffffff;
+      --accent: #b76f19;
+      --accent-soft: #fff0da;
+      --blue: #285f8f;
+      --blue-soft: #e8f1f8;
+      --danger: #9d3632;
+      --code: #101815;
+      --code-line: #26332d;
+      --radius: 8px;
+      --shadow: 0 14px 36px rgba(32, 49, 38, 0.12);
+      font-family:
+        Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(238, 242, 232, 0.92), rgba(244, 246, 241, 1) 360px),
+        var(--bg);
+      line-height: 1.6;
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    code,
+    pre {
+      font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    a {
+      color: var(--primary);
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr) 320px;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .sidebar,
+    .coach {
+      position: sticky;
+      top: 20px;
+      height: calc(100vh - 40px);
+      overflow: auto;
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar {
+      padding: 18px;
+    }
+
+    .brand {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--primary);
+      color: var(--primary-ink);
+      font-weight: 800;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .progress-wrap {
+      margin: 18px 0;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .progress-track {
+      height: 10px;
+      background: var(--surface-2);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      transition: width 220ms ease;
+    }
+
+    .nav-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .nav-button {
+      width: 100%;
+      min-height: 48px;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      padding: 8px 10px;
+      text-align: left;
+      color: var(--ink);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+    }
+
+    .nav-button:hover,
+    .nav-button:focus-visible {
+      background: var(--surface-2);
+      outline: none;
+    }
+
+    .nav-button[aria-current="true"] {
+      background: #e4eee3;
+      border-color: #b7ccb3;
+    }
+
+    .nav-index {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .nav-title {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .nav-subtitle {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    main {
+      min-width: 0;
+      display: grid;
+      gap: 20px;
+    }
+
+    .top-panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 9px;
+      border-radius: 8px;
+      background: var(--accent-soft);
+      color: #7a430d;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .top-panel h2 {
+      margin: 12px 0 8px;
+      font-size: 30px;
+      line-height: 1.2;
+      max-width: 880px;
+    }
+
+    .top-panel p {
+      margin: 0;
+      max-width: 920px;
+      color: var(--muted);
+    }
+
+    .evidence-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .evidence-chip,
+    .lesson-evidence {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      min-height: 26px;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .command-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .command {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      padding: 12px;
+      background: var(--code);
+      color: #f0f6f1;
+      border-radius: var(--radius);
+      min-height: 108px;
+    }
+
+    .command span {
+      color: #b9c8bd;
+      font-size: 12px;
+    }
+
+    .command code {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      color: #f6fff7;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .copy-command {
+      justify-self: start;
+      min-height: 30px;
+      padding: 4px 9px;
+      border-radius: 8px;
+      background: var(--code-line);
+      color: #f6fff7;
+      font-size: 12px;
+    }
+
+    .lesson-card {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .lesson-card.active {
+      display: block;
+    }
+
+    .lesson-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+      padding: 22px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #ffffff, #f8faf6);
+    }
+
+    .lesson-header h3 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.25;
+    }
+
+    .lesson-header p {
+      margin: 8px 0 0;
+      color: var(--muted);
+    }
+
+    .done-toggle {
+      min-height: 38px;
+      padding: 7px 12px;
+      border-radius: 8px;
+      background: var(--primary);
+      color: var(--primary-ink);
+      font-weight: 700;
+    }
+
+    .done-toggle[data-done="true"] {
+      background: #294235;
+    }
+
+    .lesson-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
+      gap: 18px;
+      padding: 22px;
+    }
+
+    .content-block {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .callout {
+      border-left: 4px solid var(--primary);
+      background: #f4f8f1;
+      padding: 12px 14px;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .callout strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .file-list,
+    .task-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .file-list li,
+    .task-list li {
+      display: grid;
+      gap: 4px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fbfcfa;
+    }
+
+    .file-list code {
+      color: var(--primary);
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .file-list span,
+    .task-list span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .mini-title {
+      margin: 0;
+      font-size: 15px;
+      color: var(--ink);
+    }
+
+    .diagram {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+    }
+
+    .diagram-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-weight: 800;
+    }
+
+    .diagram-node {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      padding: 10px;
+      border: 1px solid #cad7c3;
+      border-radius: var(--radius);
+      text-align: left;
+      background: #ffffff;
+      color: var(--ink);
+    }
+
+    .diagram-node:hover,
+    .diagram-node:focus-visible {
+      outline: 2px solid rgba(31, 111, 74, 0.28);
+      outline-offset: 1px;
+    }
+
+    .node-badge {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .node-main {
+      display: block;
+      font-weight: 800;
+      line-height: 1.3;
+    }
+
+    .node-meta {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+      overflow-wrap: anywhere;
+    }
+
+    .node-detail {
+      min-height: 92px;
+      padding: 12px;
+      border: 1px solid #cbd9c4;
+      border-radius: var(--radius);
+      background: #ffffff;
+      color: var(--muted);
+    }
+
+    .node-detail strong {
+      display: block;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .deep-panel {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+    }
+
+    .deep-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .deep-row {
+      display: grid;
+      gap: 5px;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfa;
+    }
+
+    .deep-row b {
+      font-size: 13px;
+    }
+
+    .deep-row span,
+    .deep-row code {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
+
+    .pipe-step {
+      min-width: 120px;
+      min-height: 116px;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      padding: 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: #fbfcfa;
+    }
+
+    .pipe-step b {
+      font-size: 14px;
+      line-height: 1.3;
+    }
+
+    .pipe-step small {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .code-panel {
+      background: var(--code);
+      color: #f3f8f4;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid #0d1712;
+    }
+
+    .code-panel header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      background: var(--code-line);
+      color: #d6e3da;
+      font-size: 13px;
+    }
+
+    .code-panel pre {
+      margin: 0;
+      padding: 14px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .code-panel code {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .coach {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      padding: 18px;
+      gap: 16px;
+    }
+
+    .coach h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .coach p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .coach-section {
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+
+    .checklist {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .check {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      font-size: 14px;
+    }
+
+    .check input {
+      width: 18px;
+      height: 18px;
+      margin: 3px 0 0;
+      accent-color: var(--primary);
+    }
+
+    .check span {
+      color: var(--muted);
+    }
+
+    .notes {
+      width: 100%;
+      min-height: 140px;
+      padding: 12px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      color: var(--ink);
+      background: #fbfcfa;
+      line-height: 1.55;
+    }
+
+    .resource-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      padding: 22px;
+    }
+
+    .resource {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fbfcfa;
+    }
+
+    .resource b {
+      line-height: 1.3;
+    }
+
+    .resource span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 1180px) {
+      .app-shell {
+        grid-template-columns: 240px minmax(0, 1fr);
+      }
+
+      .coach {
+        grid-column: 1 / -1;
+        position: static;
+        height: auto;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+        padding: 12px;
+      }
+
+      .sidebar {
+        position: static;
+        height: auto;
+      }
+
+      .nav-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .lesson-body,
+      .command-row,
+      .resource-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .lesson-header {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .nav-list {
+        grid-template-columns: 1fr;
+      }
+
+      .top-panel h2 {
+        font-size: 24px;
+      }
+
+      .lesson-header h3 {
+        font-size: 21px;
+      }
+
+      .pipeline {
+        grid-template-columns: 1fr;
+      }
+
+      .pipe-step {
+        min-width: 0;
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111815;
+        --surface: #18221d;
+        --surface-2: #202b25;
+        --ink: #ecf2ed;
+        --muted: #aebcb3;
+        --line: #34443b;
+        --primary: #59b77d;
+        --primary-ink: #0d1712;
+        --accent: #d69447;
+        --accent-soft: #332718;
+        --blue: #8ab8df;
+        --blue-soft: #1c2a35;
+        --code: #0b100e;
+        --code-line: #17211d;
+        --shadow: 0 14px 36px rgba(0, 0, 0, 0.26);
+      }
+
+      body {
+        background:
+          linear-gradient(180deg, rgba(25, 35, 30, 0.94), rgba(17, 24, 21, 1) 360px),
+          var(--bg);
+      }
+
+      .nav-button[aria-current="true"],
+      .callout,
+      .resource,
+      .file-list li,
+      .task-list li,
+      .pipe-step,
+      .deep-row,
+      .diagram-node,
+      .node-detail,
+      .notes {
+        background: #1c2822;
+      }
+
+      .top-panel,
+      .lesson-card,
+      .sidebar,
+      .coach {
+        background: rgba(24, 34, 29, 0.92);
+      }
+
+      .lesson-header {
+        background: linear-gradient(180deg, #1c2822, #18221d);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      *,
+      *::before,
+      *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="学习阶段导航">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">SX</div>
+        <div>
+          <h1>Sequoia-X 源码导学</h1>
+          <p>按主线点开，先安全验货，再追数据流，最后理解并扩展真实工程功能。</p>
+        </div>
+      </div>
+
+      <div class="progress-wrap" aria-live="polite">
+        <div class="progress-label">
+          <span>学习进度</span>
+          <strong id="progressText">0 / 6</strong>
+        </div>
+        <div class="progress-track" aria-hidden="true">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+      </div>
+
+      <nav class="nav-list" id="lessonNav"></nav>
+    </aside>
+
+    <main>
+      <section class="top-panel" aria-labelledby="pageTitle">
+        <span class="kicker">Python 量化选股项目</span>
+        <h2 id="pageTitle">从零安全启动，读懂完整主线，再亲手扩展可维护功能。</h2>
+        <p>
+          这不是 README 复述，而是一份基于当前源码和本机验证结果整理的六阶段学习地图。
+          你会依次完成离线诊断、黑盒运行、调用链追踪、并发安全实战和生产化判断。
+        </p>
+
+        <div class="evidence-strip" aria-label="结论证据说明">
+          <span class="evidence-chip">已从当前源码确认</span>
+          <span class="evidence-chip">Windows / Python 3.11 核心命令已验证</span>
+          <span class="evidence-chip">真实行情与飞书仍需你的配置验证</span>
+        </div>
+
+        <div class="command-row" aria-label="常用命令">
+          <div class="command">
+            <span>安装开发依赖</span>
+            <code>uv sync --extra dev</code>
+            <button class="copy-command" data-copy="uv sync --extra dev">复制</button>
+          </div>
+          <div class="command">
+            <span>安全迈出第一步</span>
+            <code>uv run python main.py --doctor</code>
+            <button class="copy-command" data-copy="uv run python main.py --doctor">复制</button>
+          </div>
+          <div class="command">
+            <span>验证代码基线</span>
+            <code>uv run pytest</code>
+            <button class="copy-command" data-copy="uv run pytest">复制</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="lessonHost" aria-live="polite"></section>
+
+      <section class="lesson-card active" aria-labelledby="resourcesTitle">
+        <div class="lesson-header">
+          <div>
+            <h3 id="resourcesTitle">速查资源</h3>
+            <p>学到某个位置卡住时，直接从这里跳回对应文件或测试。</p>
+          </div>
+        </div>
+        <div class="resource-grid">
+          <div class="resource">
+            <b>主入口</b>
+            <span><code>main.py</code>，看 doctor、回填、日常模式和策略注册。</span>
+          </div>
+          <div class="resource">
+            <b>安全第一步</b>
+            <span><code>sequoia_x/core/doctor.py</code>，离线检查配置、行情库和配额。</span>
+          </div>
+          <div class="resource">
+            <b>数据边界</b>
+            <span><code>sequoia_x/data/engine.py</code>，看 baostock 到 SQLite 的转换。</span>
+          </div>
+          <div class="resource">
+            <b>外部访问守卫</b>
+            <span><code>sequoia_x/data/baostock_guard.py</code>，看原子配额和异常分类。</span>
+          </div>
+          <div class="resource">
+            <b>策略接口</b>
+            <span><code>sequoia_x/strategy/base.py</code>，所有策略只需要实现 <code>run()</code>。</span>
+          </div>
+          <div class="resource">
+            <b>通知出口</b>
+            <span><code>sequoia_x/notify/feishu.py</code>，看卡片组装和 Webhook 路由。</span>
+          </div>
+          <div class="resource">
+            <b>配置入口</b>
+            <span><code>sequoia_x/core/config.py</code>，看 .env 和策略专属 Webhook。</span>
+          </div>
+          <div class="resource">
+            <b>单实例边界</b>
+            <span><code>sequoia_x/core/run_lock.py</code>，看 Windows / Unix 文件锁。</span>
+          </div>
+          <div class="resource">
+            <b>测试样板</b>
+            <span><code>tests/</code>，看如何 mock 数据源、网络和主流程异常。</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="coach" aria-label="学习教练面板">
+      <div>
+        <h2>当前任务</h2>
+        <p id="coachIntro">选择左侧阶段后，这里会显示该阶段的通关检查项。</p>
+      </div>
+
+      <section class="coach-section" aria-labelledby="checklistTitle">
+        <h3 class="mini-title" id="checklistTitle">通关检查</h3>
+        <div class="checklist" id="checklist"></div>
+      </section>
+
+      <section class="coach-section" aria-labelledby="notesTitle">
+        <h3 class="mini-title" id="notesTitle">学习笔记</h3>
+        <p>记录你读到的关键文件、疑问和下一步改造点，内容会保存在本机浏览器。</p>
+        <textarea class="notes" id="notes" spellcheck="false" aria-label="学习笔记"></textarea>
+      </section>
+    </aside>
+  </div>
+
+  <template id="lessonTemplate">
+    <article class="lesson-card active">
+      <div class="lesson-header">
+        <div>
+          <h3 data-field="title"></h3>
+          <span class="lesson-evidence" data-field="evidence"></span>
+          <p data-field="summary"></p>
+        </div>
+        <button class="done-toggle" type="button">标记完成</button>
+      </div>
+      <div class="lesson-body">
+        <div class="content-block">
+          <div class="callout">
+            <strong data-field="goalTitle"></strong>
+            <span data-field="goal"></span>
+          </div>
+          <div>
+            <h4 class="mini-title">先看这些文件</h4>
+            <ul class="file-list" data-field="files"></ul>
+          </div>
+          <div>
+            <h4 class="mini-title">15 分钟任务</h4>
+            <ul class="task-list" data-field="tasks"></ul>
+          </div>
+          <div class="code-panel">
+            <header>
+              <span data-field="codeTitle"></span>
+              <button class="copy-command" type="button" data-field="copyCode">复制</button>
+            </header>
+            <pre><code data-field="code"></code></pre>
+          </div>
+        </div>
+        <div class="content-block">
+          <div class="diagram">
+            <div class="diagram-title">
+              <span data-field="diagramTitle"></span>
+              <small>点击节点看解释</small>
+            </div>
+            <div data-field="diagramNodes"></div>
+            <div class="node-detail" data-field="nodeDetail"></div>
+          </div>
+          <div class="pipeline" data-field="pipeline"></div>
+          <section class="deep-panel">
+            <h4 class="mini-title" data-field="deepTitle"></h4>
+            <div class="deep-list" data-field="deepRows"></div>
+          </section>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script type="module">
+    const lessons = [
+      {
+        id: "overview",
+        nav: "项目全景",
+        navSub: "先建立正确地图",
+        title: "阶段 0：项目全景体检",
+        evidence: "已从当前源码确认 · 2026-07-18",
+        summary: "一句话本质：Sequoia-X 是一个收盘后运行的 A 股选股批处理程序，把外部行情落到 SQLite，执行统一策略契约，再把结果路由到飞书。",
+        goalTitle: "通关收益",
+        goal: "学完后，你能解释一个 Python 批处理应用的分层、数据边界、插件式策略接口、外部服务降级与测试隔离，并能把这些写成简历中的工程化项目经验。",
+        files: [
+          ["README.md", "先确认三种运行模式、七个内置策略和运行时状态边界。"],
+          ["main.py", "唯一 CLI 入口，负责参数分发、依赖组装、策略循环与通知触发。"],
+          ["sequoia_x/data/engine.py", "负责 baostock、SQLite 表结构、回填与日常增量。"],
+          ["sequoia_x/strategy/base.py", "定义所有策略都必须遵守的 run() -> list[str] 契约。"],
+          ["sequoia_x/notify/feishu.py", "把股票代码转换为飞书交互卡片并按 webhook_key 路由。"]
+        ],
+        tasks: [
+          ["画出五层结构", "CLI、配置与状态、数据、策略、通知；每层只写一句职责。"],
+          ["数清外部边界", "baostock、akshare、飞书都是不稳定边界，测试必须 mock。"],
+          ["找出运行产物", "行情库在 data/，锁和配额默认在用户目录 ~/.sequoia-x/。"]
+        ],
+        codeTitle: "30 秒仓库地图",
+        code: "Get-ChildItem -Force\nGet-ChildItem sequoia_x -Recurse -Filter *.py\nuv run python main.py --help",
+        diagramTitle: "核心模块地图",
+        nodes: [
+          ["CLI", "main.py", "argparse 暴露 --doctor、--backfill 和默认日常模式。"],
+          ["配置", "sequoia_x/core/config.py", "pydantic-settings 从环境变量和 .env 构造 Settings 单例。"],
+          ["数据", "sequoia_x/data/engine.py", "baostock 日 K 转成 DataFrame 后写入 stock_daily。"],
+          ["策略", "sequoia_x/strategy/*.py", "逐票窗口、横截面排名和公告监控都统一返回 list[str]。"],
+          ["出口", "sequoia_x/notify/feishu.py", "结果非空时才组装卡片并 POST 到飞书。"]
+        ],
+        pipeline: [
+          ["输入", ".env + CLI 参数"],
+          ["数据源", "baostock / akshare"],
+          ["存储", "data/sequoia_v2.db"],
+          ["计算", "strategy.run()"],
+          ["输出", "日志 + 飞书卡片"]
+        ],
+        deepTitle: "核心技术栈与能力收益",
+        deepRows: [
+          ["Python 3.10+ / uv", "运行时与依赖管理；不需要 GPU、CUDA 或前端构建链。", "证据：pyproject.toml"],
+          ["pydantic-settings / python-dotenv", "把 .env 变成有类型、可测试的 Settings。", "证据：sequoia_x/core/config.py"],
+          ["pandas / SQLite", "完成向量化指标、增量存储和唯一约束。", "证据：sequoia_x/data/engine.py"],
+          ["baostock / akshare / requests", "覆盖行情、公告和 Webhook 三类外部边界。", "证据：sequoia_x/data/、sequoia_x/strategy/private_placement.py、sequoia_x/notify/"],
+          ["pytest / Hypothesis / Ruff", "用示例测试、属性测试和静态检查守住改造边界。", "证据：tests/、pyproject.toml"]
+        ],
+        checks: [
+          "能用一句话说明项目输入、核心处理和输出。",
+          "能指出 main.py 是唯一 CLI 入口。",
+          "能解释 BaseStrategy.run() 为什么是可扩展性的关键。"
+        ]
+      },
+      {
+        id: "install",
+        nav: "安装验货",
+        navSub: "零网络先拿正反馈",
+        title: "阶段一：快速安装与验货",
+        evidence: "Windows / Python 3.11.14 · doctor、pytest、Ruff 已本机验证",
+        summary: "先不碰真实行情和飞书。用离线诊断、30 项测试与 Ruff 建立可复现基线，确认问题来自环境还是业务代码。",
+        goalTitle: "最小可行验货入口",
+        goal: "完成依赖安装、复制配置、运行 --doctor、执行测试与静态检查；看到诊断结论、30 passed 和 All checks passed。",
+        files: [
+          ["pyproject.toml", "确认 Python >= 3.10，dev 额外依赖包含 pytest、Hypothesis、pytest-mock、Ruff。"],
+          [".env.example", "复制为 .env；示例 Webhook 可用于离线诊断，但不能用于真实推送。"],
+          ["sequoia_x/core/doctor.py", "诊断 Python、Webhook、SQLite 新鲜度和 baostock 配额，不触网。"],
+          ["tests/test_doctor.py", "确认数据库缺失、正常和示例 Webhook 三种路径。"]
+        ],
+        tasks: [
+          ["进入仓库根目录", "在 PowerShell 运行 Set-Location E:\\Code\\Stock\\Sequoia-X。"],
+          ["检查前置工具", "运行 python --version 与 uv --version；Python 必须 >= 3.10。"],
+          ["安装 uv", "若 uv 不存在，按 uv 官方 Windows 安装说明执行安装脚本，再重开终端。"],
+          ["安装依赖", "运行 uv sync --extra dev；首次安装需要能访问 Python 包索引。"],
+          ["配置", "运行 Copy-Item .env.example .env，不要把真实 URL 提交到 Git。"],
+          ["安全诊断", "运行 uv run python main.py --doctor，提醒项允许继续学习。"],
+          ["代码验货", "运行 uv run pytest 与 uv run ruff check .。"]
+        ],
+        codeTitle: "推荐的 Windows 验货流程",
+        code: "Set-Location E:\\Code\\Stock\\Sequoia-X\npython --version\nuv --version\n# 若 uv 缺失，按官方 Windows 安装说明：\npowershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"\nuv sync --extra dev\nCopy-Item .env.example .env\nuv run python main.py --doctor\nuv run pytest\nuv run ruff check .",
+        diagramTitle: "安装失败时从哪里排查",
+        nodes: [
+          ["版本", "python --version", "必须 >= 3.10；本机验证版本是 3.11.14。"],
+          ["包管理器", "uv --version", "命令缺失时先按 uv 官方 Windows 安装说明安装，并重开 PowerShell。"],
+          ["依赖", "uv sync --extra dev", "同时安装运行依赖和测试、Ruff；不需要 GPU。"],
+          ["诊断", "main.py --doctor", "不触网，因此适合成为第一次运行。"],
+          ["测试", "uv run pytest", "当前完整套件验证 30 项，外部服务均由 mock 或临时目录隔离。"],
+          ["静态检查", "uv run ruff check .", "检查 E/F/I/UP，当前验证结果为 All checks passed。"]
+        ],
+        pipeline: [
+          ["安装", "uv sync --extra dev"],
+          ["复制", ".env.example -> .env"],
+          ["诊断", "--doctor"],
+          ["测试", "30 passed"],
+          ["检查", "Ruff 全绿"]
+        ],
+        deepTitle: "纯净安装避坑指南",
+        deepRows: [
+          ["Windows 启动器", "若 pytest.exe 报脚本路径错误，先重建 .venv；临时定位可用 uv run python -m pytest。", "路径：.venv/（生成物，不提交）"],
+          ["执行目录", "所有相对路径命令都应在仓库根目录 E:\\Code\\Stock\\Sequoia-X 执行。", "命令：Set-Location E:\\Code\\Stock\\Sequoia-X"],
+          ["网络边界", "uv sync 需要下载未缓存的包；--doctor 和测试本身不访问真实行情或飞书。", "命令：uv sync --extra dev"],
+          ["配置边界", "FEISHU_WEBHOOK_URL 是 Settings 必填项；真实值只放 .env。", "路径：.env.example、sequoia_x/core/config.py"],
+          ["成功信号", "诊断允许 warning，但 pytest 和 Ruff 必须为绿色才进入源码改造。", "验证：uv run pytest、uv run ruff check ."]
+        ],
+        checks: [
+          "能解释为什么 --doctor 比直接运行日常模式更适合第一步。",
+          "能区分安装失败、测试失败和真实外部服务失败。",
+          "能复述当前验证基线：30 passed 与 Ruff 全绿。"
+        ]
+      },
+      {
+        id: "blackbox",
+        nav: "黑盒接入",
+        navSub: "理解输入输出配置",
+        title: "阶段二：黑盒试跑与核心概念",
+        evidence: "源码确认；真实回填和飞书需你的凭据与网络验证",
+        summary: "把项目当成第三方 CLI：先理解三种模式、五个核心配置、三个运行产物和每种模式的外部副作用。",
+        goalTitle: "初级通关任务",
+        goal: "15 分钟内完成 .env 接入和 --doctor；能够根据诊断判断下一步是 --backfill、默认日常模式，还是先修复配置。",
+        files: [
+          [".env.example", "DB_PATH、START_DATE、FEISHU_WEBHOOK_URL、STRATEGY_WEBHOOK_*、SEQUOIA_X_STATE_DIR。"],
+          ["main.py", "三个互斥入口：--doctor、--backfill、默认日常模式。"],
+          ["data/", "行情 SQLite 运行产物；默认 data/sequoia_v2.db，不应提交。"],
+          ["sequoia_x/core/runtime_state.py", "锁和配额默认共享在 ~/.sequoia-x/，不随 DB_PATH 分裂。"],
+          ["sequoia_x/notify/feishu.py", "只有策略结果非空时 main.py 才调用 send()。"]
+        ],
+        tasks: [
+          ["接入配置", "复制 .env.example，填写真实默认 Webhook；策略专属 Webhook 可稍后补。"],
+          ["读取诊断", "数据库不存在是正常提醒；数据库过旧时先运行默认日常模式。"],
+          ["选择模式", "首次建库用 --backfill；已有库用默认模式；只验环境用 --doctor。"],
+          ["理解副作用", "--backfill 和默认模式访问外部数据，默认模式还可能发送飞书。"]
+        ],
+        codeTitle: "三种模式与安全顺序",
+        code: "uv run python main.py --doctor\n# 诊断提示没有数据库时：\nuv run python main.py --backfill\n# 已有数据库后：\nuv run python main.py",
+        diagramTitle: "输入、资产与输出",
+        nodes: [
+          ["配置", ".env", "Settings 读取数据库路径、起始日期和 Webhook 路由。"],
+          ["行情资产", "data/sequoia_v2.db", "stock_daily 以 symbol + date 唯一，保存后复权日 K。"],
+          ["共享状态", "~/.sequoia-x/", "sequoia_x.lock 防并发，baostock_guard.db 保存原子配额。"],
+          ["日志", "rich 控制台日志", "显示同步进度、策略数量、诊断和错误边界。"],
+          ["通知", "飞书 Webhook", "策略专属 URL 缺失时回退到 FEISHU_WEBHOOK_URL。"]
+        ],
+        pipeline: [
+          ["诊断", "本地只读检查"],
+          ["回填", "历史日 K 建库"],
+          ["增量", "顺序补缺失日期"],
+          ["选股", "七个策略依次运行"],
+          ["推送", "非空结果发飞书"]
+        ],
+        deepTitle: "全局配置破冰",
+        deepRows: [
+          ["DB_PATH", "SQLite 文件位置；策略和诊断都从这里读行情。", "路径：sequoia_x/core/config.py、sequoia_x/data/engine.py"],
+          ["START_DATE", "首次回填或无断点股票的历史起点。", "路径：sequoia_x/data/engine.py"],
+          ["FEISHU_WEBHOOK_URL", "必填默认出口；示例值只适合诊断和测试。", "路径：sequoia_x/core/config.py、sequoia_x/notify/feishu.py"],
+          ["STRATEGY_WEBHOOK_<KEY>", "为某个策略覆盖通知机器人，缺失时自动回退。", "路径：.env.example、sequoia_x/strategy/base.py"],
+          ["SEQUOIA_X_STATE_DIR", "可选共享锁/配额目录；生产任务必须保持一致。", "路径：sequoia_x/core/runtime_state.py"]
+        ],
+        checks: [
+          "能根据诊断结果选择正确运行模式。",
+          "能说出行情库与共享状态库分别存什么。",
+          "能解释为何同机生产任务不应使用不同 SEQUOIA_X_STATE_DIR。"
+        ]
+      },
+      {
+        id: "flow",
+        nav: "主线源码",
+        navSub: "追一次完整生命周期",
+        title: "阶段三：主线源码拆解与数据流",
+        evidence: "CodeGraph 结构化索引 + 当前源码确认",
+        summary: "从 main.py 的 main() 开始，先追对象和状态如何流动；不要一上来钻进每个 rolling 公式。",
+        goalTitle: "本阶段目标",
+        goal: "能分别复述 doctor、回填、日常三条链路，并知道策略、行情和通知哪些地方仍会触碰外部网络。",
+        files: [
+          ["main.py", "观察 argparse、get_settings()、RunLock、DataEngine、strategies 和 notifier 的创建顺序。"],
+          ["sequoia_x/data/engine.py", "重点看 _init_db()、sync_today_bulk()、backfill()、get_ohlcv()。"],
+          ["sequoia_x/strategy/ma_volume.py", "最短的逐票窗口样板，适合作为第一次断点跟踪。"],
+          ["sequoia_x/strategy/turtle_trade.py", "策略末尾还会访问 baostock 查询流通市值，不是纯本地。"],
+          ["sequoia_x/strategy/private_placement.py", "直接通过 akshare 获取公告，展示另一类外部边界。"],
+          ["sequoia_x/notify/feishu.py", "推送前会尝试用 baostock 补股票名称，失败时退化为代码。"]
+        ],
+        tasks: [
+          ["下第一个断点", "在 main.py 的 selected = strategy.run() 附近观察策略名和 list[str]。"],
+          ["跟一只股票", "从 get_local_symbols() 到 get_ohlcv(symbol)，记录 DataFrame 行数和列。"],
+          ["跟一次降级", "阅读 FeishuNotifier._get_stock_names()，解释名称失败为何仍能发代码。"],
+          ["看测试替身", "tests/test_feishu.py 用 mock 拦截 requests.post 和股票名称查询。"]
+        ],
+        codeTitle: "日常模式完整调用链",
+        code: "[.env]\n  -> get_settings()\n  -> RunLock()\n  -> DataEngine(settings)\n  -> sync_today_bulk() [baostock -> SQLite]\n  -> strategy.run() [SQLite / baostock / akshare]\n  -> FeishuNotifier.send() [名称降级 + Webhook]\n  -> 日志与飞书结果",
+        diagramTitle: "主循环五个关键节点",
+        nodes: [
+          ["1", "get_settings()", "第一次调用读取环境变量和 .env，后续复用 Settings 单例。"],
+          ["2", "RunLock()", "在用户级状态目录获取操作系统文件锁，冲突时主流程非零退出。"],
+          ["3", "sync_today_bulk()", "按每只股票最后日期生成任务，单进程顺序调用 baostock，再批量写 SQLite。"],
+          ["4", "strategy.run()", "统一返回股票代码；不同策略的数据访问形态并不完全相同。"],
+          ["5", "notifier.send()", "仅处理非空结果；HTTP 或 JSON 失败记录错误，名称查询失败则降级。"]
+        ],
+        pipeline: [
+          ["装配", "Settings + logger"],
+          ["互斥", "RunLock"],
+          ["补数", "baostock -> SQLite"],
+          ["计算", "七个 run()"],
+          ["出口", "飞书 + 日志"]
+        ],
+        deepTitle: "埋点位置与阅读心法",
+        deepRows: [
+          ["策略入口埋点", "在 selected = strategy.run() 前后记录策略名、耗时、候选数量。", "路径：main.py / main() 的策略循环"],
+          ["数据形状埋点", "在 get_ohlcv() 返回后观察 columns、len(df) 和最后日期。", "路径：sequoia_x/data/engine.py、sequoia_x/strategy/ma_volume.py"],
+          ["异常边界", "主流程统一非零退出；非关键股票名称和市值增强允许降级。", "路径：main.py、sequoia_x/notify/feishu.py、sequoia_x/strategy/turtle_trade.py"],
+          ["心理建设", "本阶段先追形状、状态、生命周期和调用顺序；公式细节留到链路稳定后。", "学习建议，不是源码事实"]
+        ],
+        checks: [
+          "能完整说出日常模式从 .env 到飞书的顺序。",
+          "能列出 Turtle、PrivatePlacement、Feishu 三个额外外部访问点。",
+          "能指出最适合统计策略耗时的代码位置。"
+        ]
+      },
+      {
+        id: "mechanism",
+        nav: "真实改造",
+        navSub: "并发守卫与离线诊断",
+        title: "阶段四：高级机制与定制化开发",
+        evidence: "本轮已实现并通过线程、进程与功能测试",
+        summary: "最有价值的改造不是再加一个公式，而是把外部服务安全边界做实：用户级单实例锁、SQLite 原子配额、异常分类和离线 --doctor。",
+        goalTitle: "进阶魔改任务",
+        goal: "先读懂本仓库已经完成的守卫与诊断功能，再独立给 --doctor 增加一个检查项，或按 BaseStrategy 契约新增一个不触网的策略。",
+        files: [
+          ["sequoia_x/core/runtime_state.py", "统一解析 ~/.sequoia-x/ 或 SEQUOIA_X_STATE_DIR。"],
+          ["sequoia_x/core/run_lock.py", "Windows 使用 msvcrt，Unix 使用 fcntl；锁由操作系统随进程释放。"],
+          ["sequoia_x/data/baostock_guard.py", "BEGIN IMMEDIATE 原子领取配额，统一登录/查询异常和黑名单提示。"],
+          ["sequoia_x/core/doctor.py", "把 Python、Webhook、行情新鲜度和配额变成可测试诊断项。"],
+          ["tests/test_baostock_guard.py", "验证 100 次线程池并发领取（20 workers）、4 进程、损坏状态库和查询错误码。"],
+          ["tests/test_run_lock.py", "验证第二实例被拒绝以及退出后可重新获取锁。"]
+        ],
+        tasks: [
+          ["重放关键测试", "只跑 guard、run_lock、doctor 三组测试，理解每条安全不变量。"],
+          ["观察原子事务", "找到 BEGIN IMMEDIATE、SELECT、上限校验、UPSERT、commit 的临界区。"],
+          ["新增诊断项", "例如检查 DB_PATH 父目录是否可写，并在 tests/test_doctor.py 覆盖正常与失败。"],
+          ["备选策略任务", "创建 BreakoutPullbackStrategy，只依赖临时 DataFrame，并补不触网测试。"]
+        ],
+        codeTitle: "验证已实现的工程功能",
+        code: "uv run pytest -q tests/test_baostock_guard.py tests/test_run_lock.py tests/test_doctor.py\nuv run python main.py --doctor\nuv run ruff check .",
+        diagramTitle: "两层保护与一个入口",
+        nodes: [
+          ["共享目录", "sequoia_x/core/runtime_state.py", "不同 DB_PATH 和仓库副本默认仍使用同一用户级状态。"],
+          ["第一层", "RunLock", "阻止两个完整 Sequoia-X 进程同时连接 baostock。"],
+          ["第二层", "claim_query_requests()", "即使有并发调用，SQLite 写锁也保证计数不丢失。"],
+          ["错误模型", "BaostockError 子类", "区分登录、查询、配额和状态损坏；配额不能按网络抖动重试。"],
+          ["学习入口", "run_doctor()", "无网络副作用地展示配置与数据状态，便于初学者迈出第一步。"]
+        ],
+        pipeline: [
+          ["解析", "用户级状态目录"],
+          ["互斥", "OS 文件锁"],
+          ["领取", "SQLite 原子配额"],
+          ["调用", "baostock 包装函数"],
+          ["反馈", "doctor / 日志 / 测试"]
+        ],
+        deepTitle: "底层病理对照表",
+        deepRows: [
+          ["症状：并发后计数远小于请求数", "原因是 JSON read-modify-write 竞态和固定临时文件；当前改用 SQLite BEGIN IMMEDIATE。", "位置：sequoia_x/data/baostock_guard.py"],
+          ["症状：达到 50,000 后仍对每只股票重试", "原因是把配额异常当普通 Exception；当前 backfill 对配额和状态异常立即上抛。", "位置：sequoia_x/data/engine.py / backfill()"],
+          ["症状：状态损坏后用量突然归零", "原因是 fail-open；当前损坏会抛 BaostockGuardStateError 并停止查询。", "位置：sequoia_x/data/baostock_guard.py / get_query_usage()"],
+          ["症状：不同数据库仍能并发连接", "原因是锁绑定 DB_PATH；当前默认锁和配额绑定用户级 ~/.sequoia-x/。", "位置：sequoia_x/core/runtime_state.py、sequoia_x/core/run_lock.py"]
+        ],
+        checks: [
+          "能解释为什么 SQLite 事务比 JSON 临时文件更适合配额计数。",
+          "能说出配额异常为何不能重试。",
+          "能独立设计一个 --doctor 新检查项及其两条测试。"
+        ]
+      },
+      {
+        id: "production",
+        nav: "生产演进",
+        navSub: "知道适合与不适合",
+        title: "阶段五：生产级改造与前沿演进",
+        evidence: "源码能力确认 + 工程对比；真实券商与调度平台需另行验证",
+        summary: "Sequoia-X 适合学习和运行单机收盘后选股，但它不是回测平台、实盘交易系统或多租户调度平台。生产化的关键是明确边界。",
+        goalTitle: "本阶段目标",
+        goal: "能把产物接入调度、分析和通知工具链，提出两个需要继续翻源码的问题，并判断何时应该扩展本项目、何时应该换成熟平台。",
+        files: [
+          ["main.py", "当前编排是单进程顺序循环，适合任务计划程序或 cron 调度。"],
+          ["sequoia_x/data/engine.py", "SQLite 可直接被 pandas、SQL 客户端或导出脚本读取。"],
+          ["sequoia_x/core/logger.py", "当前可观测性主要是控制台日志，尚无指标、追踪或结构化事件。"],
+          ["sequoia_x/notify/feishu.py", "现有输出是飞书卡片；没有券商下单、持仓和风险控制。"],
+          ["sequoia_x/strategy/base.py", "稳定策略接口适合继续扩展，但没有回测生命周期和组合管理。"]
+        ],
+        tasks: [
+          ["接入调度", "Windows 用任务计划程序，Linux 用 cron；每次只启动一个共享状态目录。"],
+          ["导出研究数据", "用 pandas.read_sql() 从 stock_daily 导出 CSV/Parquet，再接 Jupyter。"],
+          ["新增策略", "创建 sequoia_x/strategy/breakout_pullback.py，注册到 main.py，补专属 Webhook 和测试。"],
+          ["写生产问题", "至少回答交易日历、幂等重跑、监控告警、秘密管理中的两项。"]
+        ],
+        codeTitle: "新增策略的可维护闭环",
+        code: "# 1. 新增 sequoia_x/strategy/breakout_pullback.py\n# 2. 继承 BaseStrategy，实现 run() -> list[str]\n# 3. 在 main.py 导入并追加到 strategies\n# 4. 在 .env.example 增加 STRATEGY_WEBHOOK_BREAKOUT_PULLBACK\n# 5. 在 tests/ 中 mock engine 和网络\nuv run pytest\nuv run ruff check .",
+        diagramTitle: "生态位对接",
+        nodes: [
+          ["调度", "任务计划程序 / cron", "仓库是一次性 CLI，天然适合按交易日收盘后启动。"],
+          ["研究", "SQLite -> pandas / Jupyter", "行情表可直接读取、导出和做离线研究。"],
+          ["通知", "飞书 Webhook", "适合人工复核选股结果，不等同于自动交易。"],
+          ["策略扩展", "BaseStrategy", "接口小、上手快；新增策略不应直接耦合通知。"],
+          ["外部平台", "Qlib / vn.py / Airflow 类工具", "当需求进入回测、实盘或复杂编排时，应考虑专业平台。"]
+        ],
+        pipeline: [
+          ["调度", "收盘后触发"],
+          ["幂等", "锁 + 唯一约束"],
+          ["研究", "SQLite 导出"],
+          ["人工复核", "飞书卡片"],
+          ["演进", "回测 / 实盘 / 编排平台"]
+        ],
+        deepTitle: "标杆对比与架构师灵魂拷问",
+        deepRows: [
+          ["对比 Qlib", "Qlib 更强于因子研究、训练和回测；Sequoia-X 更小、更直观，适合学习单机选股主线。", "工程对比：本仓库没有模型训练与完整回测引擎"],
+          ["对比 vn.py", "vn.py 面向交易网关、订单与实盘；Sequoia-X 只有选股与通知，不应承担自动下单。", "证据：sequoia_x/notify/feishu.py 是唯一业务出口"],
+          ["对比 Airflow / Prefect", "成熟编排平台有重试、依赖图和可观测性；本项目只有一次性 CLI 和日志。", "证据：main.py、sequoia_x/core/logger.py"],
+          ["问题一：交易日与时效", "周末、节假日、停牌和数据源延迟如何决定“最新”与触发时间？", "需继续设计：交易日历和数据完整性检查"],
+          ["问题二：幂等与告警", "进程在补数、策略或推送中途崩溃后，怎样重跑且避免漏报或重复报？", "需继续设计：运行批次、结果持久化、告警和重试策略"],
+          ["适用边界", "适合源码学习、个人研究、小规模收盘后筛选；不适合高频、实盘下单、多租户和严格审计。", "当前架构结论"]
+        ],
+        checks: [
+          "能说明如何把 SQLite 产物接到 pandas / Jupyter。",
+          "能指出本项目与回测平台、实盘系统的边界。",
+          "能提出并分析两个生产级问题，而不是只新增公式。"
+        ]
+      }
+    ];
+
+    const stateKey = "sequoia-x-guided-learning";
+    const noteKey = "sequoia-x-guided-learning-notes";
+    const checklistKey = "sequoia-x-guided-learning-checks";
+    const memoryStorage = new Map();
+    const storage = (() => {
+      try {
+        localStorage.setItem("sequoia-x-storage-check", "1");
+        localStorage.removeItem("sequoia-x-storage-check");
+        return localStorage;
+      } catch {
+        return {
+          getItem: (key) => memoryStorage.get(key) || null,
+          setItem: (key, value) => memoryStorage.set(key, value)
+        };
+      }
+    })();
+    const parseStored = (key) => {
+      try {
+        const parsed = JSON.parse(storage.getItem(key) || "{}");
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+      } catch {
+        return {};
+      }
+    };
+    const saved = parseStored(stateKey);
+    const savedChecks = parseStored(checklistKey);
+    let activeId = lessons.some((lesson) => lesson.id === saved.activeId)
+      ? saved.activeId
+      : lessons[0].id;
+    const lessonIds = new Set(lessons.map((lesson) => lesson.id));
+    const done = new Set(
+      (Array.isArray(saved.done) ? saved.done : []).filter((id) => lessonIds.has(id))
+    );
+
+    const lessonNav = document.getElementById("lessonNav");
+    const lessonHost = document.getElementById("lessonHost");
+    const template = document.getElementById("lessonTemplate");
+    const progressText = document.getElementById("progressText");
+    const progressBar = document.getElementById("progressBar");
+    const checklist = document.getElementById("checklist");
+    const coachIntro = document.getElementById("coachIntro");
+    const notes = document.getElementById("notes");
+
+    notes.value = storage.getItem(noteKey) || "";
+    notes.addEventListener("input", () => storage.setItem(noteKey, notes.value));
+
+    function persist() {
+      storage.setItem(stateKey, JSON.stringify({ activeId, done: [...done] }));
+      storage.setItem(checklistKey, JSON.stringify(savedChecks));
+    }
+
+    function renderNav() {
+      lessonNav.innerHTML = "";
+      lessons.forEach((lesson, index) => {
+        const button = document.createElement("button");
+        button.className = "nav-button";
+        button.type = "button";
+        button.setAttribute("aria-current", lesson.id === activeId ? "true" : "false");
+        button.innerHTML = `
+          <span class="nav-index">${done.has(lesson.id) ? "✓" : index}</span>
+          <span>
+            <span class="nav-title">${lesson.nav}</span>
+            <span class="nav-subtitle">${lesson.navSub}</span>
+          </span>
+        `;
+        button.addEventListener("click", () => {
+          activeId = lesson.id;
+          persist();
+          render();
+        });
+        lessonNav.appendChild(button);
+      });
+    }
+
+    function renderProgress() {
+      const complete = done.size;
+      progressText.textContent = `${complete} / ${lessons.length}`;
+      progressBar.style.width = `${Math.round((complete / lessons.length) * 100)}%`;
+    }
+
+    function fillList(container, items) {
+      container.innerHTML = "";
+      items.forEach(([title, detail]) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<code>${title}</code><span>${detail}</span>`;
+        container.appendChild(li);
+      });
+    }
+
+    function renderDiagram(container, detail, nodes) {
+      container.innerHTML = "";
+      const showDetail = (node) => {
+        detail.innerHTML = `<strong>${node[1]}</strong><span>${node[2]}</span>`;
+      };
+      nodes.forEach((node) => {
+        const button = document.createElement("button");
+        button.className = "diagram-node";
+        button.type = "button";
+        button.innerHTML = `
+          <span class="node-badge">${node[0]}</span>
+          <span>
+            <span class="node-main">${node[1]}</span>
+            <span class="node-meta">${node[2]}</span>
+          </span>
+        `;
+        button.addEventListener("click", () => showDetail(node));
+        container.appendChild(button);
+      });
+      showDetail(nodes[0]);
+    }
+
+    function renderPipeline(container, steps) {
+      container.innerHTML = "";
+      steps.forEach(([title, detail]) => {
+        const step = document.createElement("div");
+        step.className = "pipe-step";
+        step.innerHTML = `<b>${title}</b><small>${detail}</small>`;
+        container.appendChild(step);
+      });
+    }
+
+    function renderDeepRows(container, rows) {
+      container.innerHTML = "";
+      rows.forEach(([title, detail, source]) => {
+        const row = document.createElement("div");
+        row.className = "deep-row";
+        row.innerHTML = `<b>${title}</b><span>${detail}</span><code>${source}</code>`;
+        container.appendChild(row);
+      });
+    }
+
+    function renderChecklist(lesson) {
+      checklist.innerHTML = "";
+      coachIntro.textContent = lesson.summary;
+      lesson.checks.forEach((item, index) => {
+        const id = `${lesson.id}-${index}`;
+        const label = document.createElement("label");
+        label.className = "check";
+        label.innerHTML = `
+          <input type="checkbox" ${savedChecks[id] ? "checked" : ""}>
+          <span>${item}</span>
+        `;
+        label.querySelector("input").addEventListener("change", (event) => {
+          savedChecks[id] = event.target.checked;
+          persist();
+        });
+        checklist.appendChild(label);
+      });
+    }
+
+    function renderLesson() {
+      const lesson = lessons.find((item) => item.id === activeId) || lessons[0];
+      const node = template.content.firstElementChild.cloneNode(true);
+      const setText = (field, value) => {
+        node.querySelector(`[data-field="${field}"]`).textContent = value;
+      };
+      setText("title", lesson.title);
+      setText("evidence", lesson.evidence);
+      setText("summary", lesson.summary);
+      setText("goalTitle", lesson.goalTitle);
+      setText("goal", lesson.goal);
+      setText("codeTitle", lesson.codeTitle);
+      setText("code", lesson.code);
+      setText("diagramTitle", lesson.diagramTitle);
+      setText("deepTitle", lesson.deepTitle);
+      fillList(node.querySelector('[data-field="files"]'), lesson.files);
+      fillList(node.querySelector('[data-field="tasks"]'), lesson.tasks);
+      renderDiagram(
+        node.querySelector('[data-field="diagramNodes"]'),
+        node.querySelector('[data-field="nodeDetail"]'),
+        lesson.nodes
+      );
+      renderPipeline(node.querySelector('[data-field="pipeline"]'), lesson.pipeline);
+      renderDeepRows(node.querySelector('[data-field="deepRows"]'), lesson.deepRows);
+
+      const doneButton = node.querySelector(".done-toggle");
+      doneButton.dataset.done = String(done.has(lesson.id));
+      doneButton.textContent = done.has(lesson.id) ? "已完成" : "标记完成";
+      doneButton.addEventListener("click", () => {
+        if (done.has(lesson.id)) {
+          done.delete(lesson.id);
+        } else {
+          done.add(lesson.id);
+        }
+        persist();
+        render();
+      });
+
+      const copyButton = node.querySelector('[data-field="copyCode"]');
+      copyButton.addEventListener("click", () => copyText(lesson.code, copyButton));
+
+      lessonHost.innerHTML = "";
+      lessonHost.appendChild(node);
+      renderChecklist(lesson);
+    }
+
+    async function copyText(text, button) {
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const input = document.createElement("textarea");
+          input.value = text;
+          input.style.position = "fixed";
+          input.style.opacity = "0";
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand("copy");
+          input.remove();
+        }
+        const original = button.textContent;
+        button.textContent = "已复制";
+        window.setTimeout(() => {
+          button.textContent = original;
+        }, 1200);
+      } catch {
+        button.textContent = "复制失败";
+      }
+    }
+
+    function render() {
+      renderNav();
+      renderProgress();
+      renderLesson();
+    }
+
+    document.querySelectorAll("[data-copy]").forEach((button) => {
+      button.addEventListener("click", () => copyText(button.dataset.copy, button));
+    });
+    render();
+  </script>
+</body>
+</html>

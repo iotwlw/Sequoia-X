@@ -1,91 +1,111 @@
-"""配置管理模块：通过 pydantic-settings 从环境变量或 .env 文件加载系统配置。"""
+"""配置管理模块：通过 pydantic-settings 从环境变量或 .env 加载配置。"""
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Any
+
+from pydantic import Field
+from pydantic.fields import FieldInfo
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
+
+from sequoia_x.core.runtime_state import get_runtime_state_dir
+
+_STRATEGY_WEBHOOK_PREFIX = "STRATEGY_WEBHOOK_"
+_PLACEHOLDER_MARKERS = ("your-", "example.com/hook")
+
+
+def is_placeholder_webhook(url: str) -> bool:
+    """判断 Webhook 是否仍是仓库示例值。"""
+    normalized = url.strip().lower()
+    return not normalized or any(marker in normalized for marker in _PLACEHOLDER_MARKERS)
+
+
+class StrategyWebhookSettingsSource(PydanticBaseSettingsSource):
+    """把环境变量和 .env 中的 STRATEGY_WEBHOOK_<KEY> 聚合为字典。"""
+
+    def __init__(
+        self,
+        settings_cls: type[BaseSettings],
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+    ) -> None:
+        super().__init__(settings_cls)
+        self.env_settings = env_settings
+        self.dotenv_settings = dotenv_settings
+
+    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
+        return None, field_name, False
+
+    def __call__(self) -> dict[str, Any]:
+        webhooks: dict[str, str] = {}
+        # .env 先加载，真实系统环境变量覆盖同名策略配置。
+        for source in (self.dotenv_settings, self.env_settings):
+            env_vars = getattr(source, "env_vars", {})
+            for key, value in env_vars.items():
+                if not value or not key.upper().startswith(_STRATEGY_WEBHOOK_PREFIX):
+                    continue
+                if is_placeholder_webhook(value):
+                    continue
+                strategy_key = key[len(_STRATEGY_WEBHOOK_PREFIX) :].lower()
+                webhooks[strategy_key] = value
+        return {"strategy_webhooks": webhooks} if webhooks else {}
 
 
 class Settings(BaseSettings):
     db_path: str = "data/sequoia_v2.db"
     start_date: str = "2024-01-01"
+    state_dir: str = Field(
+        default_factory=lambda: str(get_runtime_state_dir()),
+        validation_alias="SEQUOIA_X_STATE_DIR",
+    )
     feishu_webhook_url: str  # 必填字段，缺失时抛出 ValidationError
-    strategy_webhooks: dict[str, str] = {}
+    strategy_webhooks: dict[str, str] = Field(default_factory=dict)
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        extra="ignore",  # <--- 加上这一行！让 Pydantic 放行未定义的变量
+        extra="ignore",
+        populate_by_name=True,
     )
 
     @classmethod
-    def settings_customise_sources(cls, settings_cls, **kwargs):  # type: ignore[override]
-        """扩展配置源，支持从环境变量中扫描 STRATEGY_WEBHOOK_ 前缀的键。"""
-        from pydantic_settings import EnvSettingsSource
-        import os
-
-        sources = super().settings_customise_sources(settings_cls, **kwargs)
-
-        # 扫描环境变量，将 STRATEGY_WEBHOOK_<KEY> 收集到 strategy_webhooks
-        prefix = "STRATEGY_WEBHOOK_"
-        webhooks: dict[str, str] = {}
-        for key, value in os.environ.items():
-            if key.upper().startswith(prefix):
-                strategy_key = key[len(prefix):].lower()
-                webhooks[strategy_key] = value
-
-        # 注入到初始化数据中（通过 init_kwargs source）
-        if webhooks:
-            original_init = kwargs.get("init_settings")
-            # 直接在 env 层注入，通过 model_post_init 处理
-            os.environ.setdefault("_STRATEGY_WEBHOOKS_PARSED", "1")
-            # 存储解析结果供 model_validator 使用
-            cls._parsed_strategy_webhooks = webhooks
-
-        return sources
-
-    def model_post_init(self, __context: object) -> None:
-        """初始化后合并 STRATEGY_WEBHOOK_ 前缀的环境变量到 strategy_webhooks。"""
-        import os
-
-        prefix = "STRATEGY_WEBHOOK_"
-        webhooks: dict[str, str] = dict(self.strategy_webhooks)
-        for key, value in os.environ.items():
-            if key.upper().startswith(prefix):
-                strategy_key = key[len(prefix):].lower()
-                webhooks[strategy_key] = value
-
-        # 使用 object.__setattr__ 绕过 pydantic 的不可变保护
-        object.__setattr__(self, "strategy_webhooks", webhooks)
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        strategy_webhooks = StrategyWebhookSettingsSource(
+            settings_cls,
+            env_settings=env_settings,
+            dotenv_settings=dotenv_settings,
+        )
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            strategy_webhooks,
+            file_secret_settings,
+        )
 
     def get_webhook_url(self, webhook_key: str) -> str:
-        """
-        根据 webhook_key 返回对应的 Webhook URL。
-
-        优先从 strategy_webhooks 查找，找不到则 fallback 到 feishu_webhook_url。
-
-        Args:
-            webhook_key: 策略标识，如 'ma_volume'、'breakout'。
-
-        Returns:
-            对应的 Webhook URL 字符串。
-        """
-        return self.strategy_webhooks.get(webhook_key.lower(), self.feishu_webhook_url)
+        """返回策略专属 Webhook；未配置或仍为示例值时回退默认地址。"""
+        strategy_url = self.strategy_webhooks.get(webhook_key.lower(), "")
+        if strategy_url and not is_placeholder_webhook(strategy_url):
+            return strategy_url
+        return self.feishu_webhook_url
 
 
 _settings: Settings | None = None
 
 
 def get_settings() -> Settings:
-    """返回全局 Settings 单例。
-
-    首次调用时从环境变量或 .env 文件加载配置。
-    若必填字段（feishu_webhook_url）缺失，抛出 pydantic_core.ValidationError。
-
-    Returns:
-        Settings: 全局唯一的配置实例。
-
-    Raises:
-        pydantic_core.ValidationError: 当必填字段缺失或字段类型不匹配时抛出。
-    """
+    """首次调用时加载并缓存全局 Settings。"""
     global _settings
     if _settings is None:
         _settings = Settings()

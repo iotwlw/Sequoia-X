@@ -3,6 +3,12 @@
 import pandas as pd
 
 from sequoia_x.core.logger import get_logger
+from sequoia_x.data.baostock_guard import (
+    BaostockError,
+    login_baostock,
+    logout_baostock,
+    query_history_k_data_plus,
+)
 from sequoia_x.strategy.base import BaseStrategy
 
 logger = get_logger(__name__)
@@ -14,7 +20,8 @@ class TurtleTradeStrategy(BaseStrategy):
     选股条件（向量化，严禁 iterrows）：
     1. 突破新高：今日 close > 前20个交易日 high 的最大值
     2. 流动性：今日 turnover > 100,000,000
-    3. 防诱多过滤：今日必须是实体阳线（今日 close > 今日 open），且必须真涨（今日 close > 昨日 close）
+    3. 防诱多过滤：今日必须是实体阳线（今日 close > 今日 open），
+       且必须真涨（今日 close > 昨日 close）
 
     Attributes:
         webhook_key: 路由到 'turtle' 专属飞书机器人。
@@ -31,18 +38,21 @@ class TurtleTradeStrategy(BaseStrategy):
         """
         from datetime import date
 
-        import baostock as bs
-
         today_str = date.today().strftime("%Y-%m-%d")
         market_caps: dict[str, float] = {}
 
-        bs.login()
+        try:
+            login_baostock(logger)
+        except BaostockError:
+            return market_caps
+
         try:
             for symbol in symbols:
                 bs_code = self.engine._to_baostock_code(symbol)
-                rs = bs.query_history_k_data_plus(
+                rs = query_history_k_data_plus(
                     bs_code,
                     "close,volume,turn",
+                    _state_dir=self.engine.state_dir,
                     start_date=today_str,
                     end_date=today_str,
                     frequency="d",
@@ -59,8 +69,10 @@ class TurtleTradeStrategy(BaseStrategy):
                             market_caps[symbol] = circulating_shares * close
                     except (ValueError, ZeroDivisionError):
                         continue
+        except Exception as exc:
+            logger.warning(f"TurtleTradeStrategy 市值查询失败，将按原顺序返回：{exc}")
         finally:
-            bs.logout()
+            logout_baostock(logger)
 
         return market_caps
 
@@ -92,8 +104,8 @@ class TurtleTradeStrategy(BaseStrategy):
                 liquid = last["turnover"] > 100_000_000
 
                 # 【新增防守条件】拒绝郑州煤电式的高开低走大阴线！
-                is_yang = last["close"] > last["open"]   # 实体必须是阳线（红柱）
-                is_up = last["close"] > prev["close"]    # 必须是真涨，不能是假阳线
+                is_yang = last["close"] > last["open"]  # 实体必须是阳线（红柱）
+                is_up = last["close"] > prev["close"]  # 必须是真涨，不能是假阳线
 
                 if breakout and liquid and is_yang and is_up:
                     candidates.append(symbol)

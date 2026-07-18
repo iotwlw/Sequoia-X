@@ -1,7 +1,5 @@
 """涨停洗盘策略：昨日涨停后今日放量收阴但不破昨收。"""
 
-import pandas as pd
-
 from sequoia_x.core.logger import get_logger
 from sequoia_x.strategy.base import BaseStrategy
 

@@ -1,7 +1,5 @@
 """均线+成交量选股策略：5日均线上穿20日均线且成交量放大。"""
 
-import pandas as pd
-
 from sequoia_x.core.logger import get_logger
 from sequoia_x.strategy.base import BaseStrategy
 
@@ -46,10 +44,7 @@ class MaVolumeStrategy(BaseStrategy):
                 last = df.iloc[-1]
                 prev = df.iloc[-2]
 
-                golden_cross = (
-                    prev["ma5"] < prev["ma20"]
-                    and last["ma5"] > last["ma20"]
-                )
+                golden_cross = prev["ma5"] < prev["ma20"] and last["ma5"] > last["ma20"]
                 volume_surge = last["volume"] > last["vol_ma20"] * 1.5
 
                 if golden_cross and volume_surge:

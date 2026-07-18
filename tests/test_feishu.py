@@ -1,11 +1,10 @@
 """飞书通知属性测试。"""
 
 import json
-import logging
 from unittest.mock import MagicMock, patch
 
-import pytest
-from hypothesis import given, settings as h_settings
+from hypothesis import given
+from hypothesis import settings as h_settings
 from hypothesis import strategies as st
 
 from sequoia_x.core.config import Settings
@@ -24,7 +23,9 @@ def make_settings(webhook_url: str = "https://example.com/default") -> Settings:
 @given(
     symbols=st.lists(
         st.text(min_size=6, max_size=6, alphabet="0123456789"),
-        min_size=1, max_size=10, unique=True,
+        min_size=1,
+        max_size=10,
+        unique=True,
     )
 )
 @h_settings(max_examples=50)
@@ -33,12 +34,21 @@ def test_notification_contains_all_symbols(symbols: list[str]) -> None:
     settings = make_settings()
     notifier = FeishuNotifier(settings)
 
-    with patch("requests.post") as mock_post:
-        mock_post.return_value = MagicMock(status_code=200)
-        notifier.send(symbols=symbols, strategy_name="TestStrategy")
+    with patch.object(FeishuNotifier, "_get_stock_names", return_value={}):
+        with patch("requests.post") as mock_post:
+            mock_post.return_value = MagicMock(
+                status_code=200,
+                text='{"code": 0}',
+                json=MagicMock(return_value={"code": 0}),
+            )
+            notifier.send(symbols=symbols, strategy_name="TestStrategy")
 
     call_args = mock_post.call_args
-    body = json.loads(call_args.kwargs.get("data") or call_args.args[1] if len(call_args.args) > 1 else call_args.kwargs["data"])
+    body = json.loads(
+        call_args.kwargs.get("data") or call_args.args[1]
+        if len(call_args.args) > 1
+        else call_args.kwargs["data"]
+    )
     card_text = json.dumps(body)
     for symbol in symbols:
         assert symbol in card_text
@@ -46,7 +56,9 @@ def test_notification_contains_all_symbols(symbols: list[str]) -> None:
 
 # Feature: sequoia-x-v2, Property 11: 飞书通知使用 ConfigManager 中的 Webhook URL
 @given(
-    webhook_url=st.from_regex(r"https://open\.feishu\.cn/open-apis/bot/v2/hook/[a-z0-9\-]{8,36}", fullmatch=True)
+    webhook_url=st.from_regex(
+        r"https://open\.feishu\.cn/open-apis/bot/v2/hook/[a-z0-9\-]{8,36}", fullmatch=True
+    )
 )
 @h_settings(max_examples=50)
 def test_notification_uses_config_url(webhook_url: str) -> None:
@@ -54,11 +66,20 @@ def test_notification_uses_config_url(webhook_url: str) -> None:
     settings = make_settings(webhook_url=webhook_url)
     notifier = FeishuNotifier(settings)
 
-    with patch("requests.post") as mock_post:
-        mock_post.return_value = MagicMock(status_code=200)
-        notifier.send(symbols=["000001"], strategy_name="Test", webhook_key="default")
+    with patch.object(FeishuNotifier, "_get_stock_names", return_value={}):
+        with patch("requests.post") as mock_post:
+            mock_post.return_value = MagicMock(
+                status_code=200,
+                text='{"code": 0}',
+                json=MagicMock(return_value={"code": 0}),
+            )
+            notifier.send(symbols=["000001"], strategy_name="Test", webhook_key="default")
 
-    called_url = mock_post.call_args.args[0] if mock_post.call_args.args else mock_post.call_args.kwargs.get("url")
+    called_url = (
+        mock_post.call_args.args[0]
+        if mock_post.call_args.args
+        else mock_post.call_args.kwargs.get("url")
+    )
     assert called_url == webhook_url
 
 
@@ -68,6 +89,7 @@ def test_notification_uses_config_url(webhook_url: str) -> None:
 def test_http_failure_logs_error(status_code: int) -> None:
     """属性 12：非 200 响应时，send() 应记录 ERROR 级别日志，不抛出异常。"""
     import logging as _logging
+
     import sequoia_x.notify.feishu as feishu_module
 
     settings = make_settings()
@@ -84,10 +106,32 @@ def test_http_failure_logs_error(status_code: int) -> None:
     handler = _ListHandler(_logging.ERROR)
     feishu_logger.addHandler(handler)
     try:
-        with patch("requests.post") as mock_post:
-            mock_post.return_value = MagicMock(status_code=status_code, text="error")
-            notifier.send(symbols=["000001"], strategy_name="Test")
+        with patch.object(FeishuNotifier, "_get_stock_names", return_value={}):
+            with patch("requests.post") as mock_post:
+                mock_post.return_value = MagicMock(
+                    status_code=status_code,
+                    text="error",
+                    json=MagicMock(return_value={"code": 999}),
+                )
+                notifier.send(symbols=["000001"], strategy_name="Test")
     finally:
         feishu_logger.removeHandler(handler)
 
     assert any(r.levelno == _logging.ERROR for r in log_records)
+
+
+def test_non_object_feishu_response_is_logged_without_raising() -> None:
+    """HTTP 200 但 JSON 不是对象时，通知边界仍应降级为错误日志。"""
+    import sequoia_x.notify.feishu as feishu_module
+
+    notifier = FeishuNotifier(make_settings())
+    response = MagicMock(status_code=200, text="[]")
+    response.json.return_value = []
+
+    with patch.object(FeishuNotifier, "_get_stock_names", return_value={}):
+        with patch("requests.post", return_value=response):
+            with patch.object(feishu_module.logger, "error") as log_error:
+                notifier.send(symbols=["000001"], strategy_name="Test")
+
+    log_error.assert_called_once()
+    assert "不是对象" in log_error.call_args.args[0]

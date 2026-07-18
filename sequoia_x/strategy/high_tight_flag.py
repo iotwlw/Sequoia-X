@@ -1,7 +1,5 @@
 """高旗形整理策略：强动量后极度收敛缩量。"""
 
-import pandas as pd
-
 from sequoia_x.core.logger import get_logger
 from sequoia_x.strategy.base import BaseStrategy
 
